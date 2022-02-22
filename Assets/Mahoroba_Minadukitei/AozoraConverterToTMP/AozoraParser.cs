@@ -13,7 +13,9 @@ namespace Minadukitei.Products
         /// <summary>指定された最大文字数・最大行数でページを生成・処理するパーサ。</summary>
         /// <param name="lineMaxLength">一行の最大文字数。</param>
         /// <param name="lineMaxCount">一ページの最大行数。</param>
-        public AozoraParser(int lineMaxLength, int lineMaxCount)
+        /// <param name="lineHight">フォントアセットの一行の高さ。</param>
+        /// <param name="pointSize">フォントアセットのPointSize。</param>
+        public AozoraParser(int lineMaxLength, int lineMaxCount, float lineHight, int pointSize, bool rotateOption)
         {
             CurrentLineLength = 0;
             CurrentLineCount  = 0;
@@ -21,9 +23,11 @@ namespace Minadukitei.Products
             IsPageFirstAdd    = true;
             IsCenterAlign     = false;
             IsRotate          = true;
+            IsRotate2         = rotateOption;
             IsBouten          = false;
             LineMaxLength     = lineMaxLength * 2;
             LineMaxCount      = lineMaxCount;
+            FixLineHight = (lineHight / pointSize) * 1.1f;
             TextBuilder.Clear();
         }
 
@@ -72,6 +76,8 @@ namespace Minadukitei.Products
         private bool IsJiageContinuity { get; set; }
         /// <summary>回転させるかどうか。縦書きにするためにはTrue。</summary>
         private bool IsRotate { get; set; }
+        /// <summary>縦書きならTrue、横書きはFalse。</summary>
+        public bool IsRotate2 { get; set; }
         /// <summary>傍点を振るかどうか。</summary>
         private bool IsBouten { get; set; }
         /// <summary>中央寄せにするかどうか。</summary>
@@ -89,6 +95,9 @@ namespace Minadukitei.Products
                 return textBuilder;
             }
         }
+        /// <summary>行間固定用。TMPTextを介さないため。</summary>
+        private float FixLineHight { get; set; }
+
         /// <summary>トークンを受け取り、対象の文章を変換します。</summary>
         /// <param name="aozoraTokens">元の文章一行に相当するトークン列。</param>
         /// <param name="resultList">変換後の文章をページ単位で格納します。</param>
@@ -133,18 +142,22 @@ namespace Minadukitei.Products
                     continue;
                 }
 
-                if (IsRotate != aozoraTokens[currentIndex].IsRotate)
+                // 縦書きにする時のみ
+                if (IsRotate2)
                 {
-                    if (IsRotate)
+                    if (IsRotate != aozoraTokens[currentIndex].IsRotate)
                     {
-                        TextBuilder.Append("<rotate=0>");
+                        if (IsRotate)
+                        {
+                            TextBuilder.Append("<rotate=0>");
+                        }
+                        else
+                        {
+                            TextBuilder.Append("<rotate=90>");
+                        }
                     }
-                    else
-                    {
-                        TextBuilder.Append("<rotate=90>");
-                    }
+                    IsRotate = aozoraTokens[currentIndex].IsRotate;
                 }
-                IsRotate = aozoraTokens[currentIndex].IsRotate;
 
                 switch (aozoraTokens[currentIndex].Type)
                 {
@@ -154,7 +167,14 @@ namespace Minadukitei.Products
 
                         FirstAdd();
 
-                        TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{aozoraTokens[currentIndex].Literal.ChangeRotate(IsRotate).AdjustReplace()}</r>");
+                        if (IsRotate2)
+                        {
+                            TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{aozoraTokens[currentIndex].Literal.ChangeRotate(IsRotate).AdjustReplace()}</r>");
+                        }
+                        else
+                        {
+                            TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{aozoraTokens[currentIndex].Literal}</r>");
+                        }
                         CurrentLineLength += aozoraTokens[currentIndex].Literal.Size();
 
                         if (CurrentLineLength >= LineMaxLength) MakeNewLineOrPage(ref resultList);
@@ -175,7 +195,14 @@ namespace Minadukitei.Products
                         if (CurrentElement != aozoraTokens[currentIndex].Element && aozoraTokens[currentIndex].Element == AozoraToken.ElementType.Footer)
                         {
                             CurrentElement = aozoraTokens[currentIndex].Element;
-                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                            if (IsRotate2)
+                            {
+                                resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                            }
+                            else
+                            {
+                                resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString());
+                            }
                             resultList.Add("");
                             TextBuilder.Clear();
                             CurrentLineCount = 0;
@@ -185,7 +212,14 @@ namespace Minadukitei.Products
                             IsPageFirstAdd = true;
 
                             FirstAdd();
-                            TextBuilder.Append(aozoraTokens[currentIndex].Literal);
+                            if (IsRotate2)
+                            {
+                                TextBuilder.Append(aozoraTokens[currentIndex].Literal.ChangeRotate(IsRotate).AdjustReplace());
+                            }
+                            else
+                            {
+                                TextBuilder.Append(aozoraTokens[currentIndex].Literal);
+                            }
                             CurrentLineLength = aozoraTokens[currentIndex].Size;
                             break;
                         }
@@ -210,7 +244,14 @@ namespace Minadukitei.Products
 
                                     FirstAdd();
 
-                                    TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{aozoraTokens[currentIndex].Literal.ChangeRotate(IsRotate).AdjustReplace()}</r>");
+                                    if (IsRotate2)
+                                    {
+                                        TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{aozoraTokens[currentIndex].Literal.ChangeRotate(IsRotate).AdjustReplace()}</r>");
+                                    }
+                                    else
+                                    {
+                                        TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{aozoraTokens[currentIndex].Literal}</r>");
+                                    }
                                     CurrentLineLength += aozoraTokens[currentIndex].Literal.Size();
 
                                     if (CurrentLineLength >= LineMaxLength) MakeNewLineOrPage(ref resultList);
@@ -225,7 +266,14 @@ namespace Minadukitei.Products
 
                                     FirstAdd();
 
-                                    TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{rubyTarget.ChangeRotate(IsRotate).AdjustReplace()}</r>");
+                                    if (IsRotate2)
+                                    {
+                                        TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{rubyTarget.ChangeRotate(IsRotate).AdjustReplace()}</r>");
+                                    }
+                                    else
+                                    {
+                                        TextBuilder.Append($"<r={aozoraTokens[currentIndex + 1].Literal}>{rubyTarget}</r>");
+                                    }
                                     CurrentLineLength += rubyTarget.Size();
 
                                     if (CurrentLineLength >= LineMaxLength) MakeNewLineOrPage(ref resultList);
@@ -437,7 +485,14 @@ namespace Minadukitei.Products
 
             if (CurrentLineCount >= LineMaxCount)
             {
-                resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                if (IsRotate2)
+                {
+                    resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                }
+                else
+                {
+                    resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString());
+                }
                 resultList.Add("");
                 TextBuilder.Clear();
                 CurrentLineCount = 0;
@@ -447,12 +502,19 @@ namespace Minadukitei.Products
             }
             else if (lineEndFlag)
             {
-                resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                if (IsRotate2)
+                {
+                    resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                }
+                else
+                {
+                    resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString());
+                }
                 TextBuilder.Clear();
             }
             CurrentLineLength = 0;
-            IsMakeNewLine = true;
-            IsLineFirstAdd = true;
+            IsMakeNewLine     = true;
+            IsLineFirstAdd    = true;
         }
 
         /// <summary>注記された組版の処理を行います。</summary>
@@ -559,7 +621,14 @@ namespace Minadukitei.Products
                     case string str when str.Contains("改ページ"):
                         MakeCenterAlign();
                         if (CurrentLineCount == 0) break;
-                        resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                        if (IsRotate2)
+                        {
+                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                        }
+                        else
+                        {
+                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString());
+                        }
                         resultList.Add("");
                         TextBuilder.Clear();
                         CurrentLineLength = 0;
@@ -573,7 +642,14 @@ namespace Minadukitei.Products
                     case string str when str.Contains("改丁"):
                         MakeCenterAlign();
                         if (CurrentLineCount == 0) break;
-                        resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                        if (IsRotate2)
+                        {
+                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                        }
+                        else
+                        {
+                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString());
+                        }
                         resultList.Add("");
                         TextBuilder.Clear();
                         CurrentLineLength = 0;
@@ -592,7 +668,14 @@ namespace Minadukitei.Products
                     case string str when str.Contains("改見開き"):
                         MakeCenterAlign();
                         if (CurrentLineCount == 0) break;
-                        resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                        if (IsRotate2)
+                        {
+                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString()).ChangeRotate2(true).FixReplace();
+                        }
+                        else
+                        {
+                            resultList[CurrentPageCount] = TMProRubyUtil.GetExpandText(TextBuilder.ToString());
+                        }
                         resultList.Add("");
                         TextBuilder.Clear();
                         CurrentLineLength = 0;
@@ -608,17 +691,16 @@ namespace Minadukitei.Products
                         break;
 
                     case string str when str.Contains("横組み"):
+                        if (IsRotate2 == false) break;
                         if (annotate.Contains("終わり"))
                         {
                             TextBuilder.Append("<rotate=90>");
-                            //IsLandscape = false;
                             IsRotate = true;
 
                         }
                         else
                         {
                             TextBuilder.Append("<rotate=0>");
-                            //IsLandscape = true;
                             IsRotate = false;
                         }
                         break;
@@ -642,8 +724,8 @@ namespace Minadukitei.Products
         {
             if (IsPageFirstAdd)
             {
-                //if (IsLandscape == false) TextBuilder.Append("<rotate=90>");
-                if (IsRotate) TextBuilder.Append("<rotate=90>");
+                textBuilder.Append($"<line-height={FixLineHight:F3}em>");
+                if (IsRotate2 && IsRotate) TextBuilder.Append("<rotate=90>");
                 if (JisageCount != 0) TextBuilder.Append($"<margin-left={JisageCount}em>");
                 if (JiageCount != 0) TextBuilder.Append($@"<align=""right""><margin-right={JiageCount}em>");
                 if (IsRightAlign) TextBuilder.Append(@"<align=""right"">");
@@ -671,7 +753,6 @@ namespace Minadukitei.Products
             }
 
             int AdditionalSize = 0;
-            //if (IsLineFirstAdd) AdditionalSize += JisageCount + JisageCountTemp;
             if (IsLineBreaked) AdditionalSize += OrikaesiCount * 2;
 
             if (LineMaxLength - CurrentLineLength >= baseString.Size() + AdditionalSize)
@@ -680,7 +761,14 @@ namespace Minadukitei.Products
 
                 if (IsBouten) AddBouten(baseString);
 
-                TextBuilder.Append(baseString.ChangeRotate(IsRotate).AdjustReplace());
+                if (IsRotate2)
+                {
+                    TextBuilder.Append(baseString.ChangeRotate(IsRotate).AdjustReplace());
+                }
+                else
+                {
+                    TextBuilder.Append(baseString);
+                }
 
                 if (IsBouten) TextBuilder.Append("</r>");
 
@@ -709,7 +797,14 @@ namespace Minadukitei.Products
 
             if (IsBouten) AddBouten(addString);
 
-            TextBuilder.Append(addString.ChangeRotate(IsRotate).AdjustReplace());
+            if (IsRotate2)
+            {
+                TextBuilder.Append(addString.ChangeRotate(IsRotate).AdjustReplace());
+            }
+            else
+            {
+                TextBuilder.Append(addString);
+            }
 
             if (IsBouten) TextBuilder.Append("</r>");
 
@@ -768,7 +863,7 @@ namespace Minadukitei.Products
                 // 末尾を次の行に送る。
                 currentTextElement--;
 
-                while (currentTextElement >= 0)
+                while (currentTextElement >= 1)
                 {
                     if (StringExtensions.NotLineEndString.Contains(stringInfo.SubstringByTextElements(currentTextElement - 1, 1)) == false) return currentTextElement;
 
