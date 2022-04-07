@@ -26,7 +26,7 @@ namespace Minadukitei.Products
         /// <summary>傍点の終了注記の検出用。</summary>
         public static Regex regexBoutenEnd = new Regex(@"［＃(?:左に)*?(?:白ゴマ|丸|白丸|黒三角|白三角|二重丸|蛇の目|ばつ)*?傍点終わり］", RegexOptions.Compiled);
         /// <summary>回転させない文字の検出用。</summary>
-        public static Regex regexLandscape = new Regex(@"[a-zA-Z0-9）,)\]｝〕〉》」』】〙〗〟’”｠»‐―￣－\-゠–!?‼⁇⁈⁉$\\_＿/＼／{}<>＜＞.〜:;/'^*+-=＝…‥：；［］（([｛〔〈《「『【〘〖〝‘“｟«""]+", RegexOptions.Compiled);
+        public static Regex regexLandscape = new Regex(@"[a-zA-Z0-9 ）,)\]｝〕〉》」』】〙〗〟’”｠»‐―￣－\-゠–!?‼⁇⁈⁉$\\_＿/＼／{}<>＜＞.〜:;/'^*+-=＝…‥：；［］（([｛〔〈《「『【〘〖〝‘“｟«""]+", RegexOptions.Compiled);
         /// <summary>回転させない文字の検出用。長母音。</summary>
         public static Regex regexLandscape2 = new Regex(@"[ー～]+", RegexOptions.Compiled);
         /// <summary>回転させる文字の検出用。</summary>
